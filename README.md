@@ -62,19 +62,6 @@ Rate limits: 60 requests/min per IP · 30 orders/hour per IP.
 
 **Bonus targets:** multi-item carts, delivery-date handling, gift messaging, Sinhala language support.
 
-## Project docs
-
-**Implementation rule:** Before building or changing features, always read the relevant files in [`Docs/`](Docs/). Cursor enforces this via `.cursor/rules/read-docs-before-implementation.mdc`.
-
-Local reference material in [`Docs/`](Docs/):
-
-| File | Contents |
-|------|----------|
-| [`Note.md`](Docs/Note.md) | Seed notes — vision, agent design, Dulith interview takeaways |
-| [`AgentChallenge.md`](Docs/AgentChallenge.md) | Challenge brief, rubric, timeline, FAQ |
-| [`MCPServer.md`](Docs/MCPServer.md) | MCP endpoint, tools, rate limits |
-| [`GitHubSource.md`](Docs/GitHubSource.md) | Official MCP server repo — clone, run, test |
-| [`Approval.md`](Docs/Approval.md) | Challenge approval and getting-started notes |
 
 ## Scoring rubric (100 pts)
 
