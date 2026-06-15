@@ -1,0 +1,40 @@
+---
+description: Always read Docs/ before implementing features or making architecture decisions
+alwaysApply: true
+---
+
+# Read Docs Before Implementation
+
+Before writing or changing implementation code (`backend/`, `frontend/`, agents, MCP integration, UI flows), **read the relevant files in `Docs/` first**.
+
+## Required workflow
+
+1. **Scan `Docs/`** — list or read files there before coding.
+2. **Match docs to the task** — use the guide below; read every doc that applies.
+3. **Align with documented constraints** — challenge rubric, MCP limits, product vision, and seed notes override assumptions.
+4. **Re-read when scope shifts** — new feature area (checkout, delivery, personality, i18n) → read the matching doc again.
+
+## Docs index
+
+| File | Read when |
+|------|-----------|
+| `Docs/Note.md` | Product vision, agent architecture, Dulith interview takeaways, differentiation |
+| `Docs/AgentChallenge.md` | Requirements, rubric, bonus targets, eligibility, timeline |
+| `Docs/MCPServer.md` | MCP tools, parameters, rate limits, caching, checkout |
+| `Docs/GitHubSource.md` | Local MCP server setup, testing against official source |
+| `Docs/Approval.md` | Challenge registration and getting-started context |
+
+## Non-negotiables from Docs
+
+- Full-screen immersive UX — not a side widget
+- Warm, human personality — not a catalog search bot
+- End-to-end flow: discovery → delivery → guest checkout
+- Cache MCP reads; respect 60 req/min and 30 orders/hr limits
+- Confirm before `create_order`; no order-edit MCP during competition
+- Local language support (Sinhala / Tamil / Tanglish) is a strong differentiator
+
+## Do not
+
+- Implement MCP tools, flows, or UI from memory alone
+- Contradict `Docs/Note.md` or `Docs/AgentChallenge.md` without explicit user direction
+- Skip Docs because the task seems small
