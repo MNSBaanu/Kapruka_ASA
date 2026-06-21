@@ -3,12 +3,21 @@ import { useState, useRef, useCallback } from 'react'
 export function useChat(sessionId = 'default') {
   const [messages, setMessages] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [activeTool, setActiveTool] = useState(null)
+  const [orderStatus, setOrderStatus] = useState(null)
+  const [orderData, setOrderData] = useState(null)
+  const [error, setError] = useState(null)
   const abortRef = useRef(null)
 
   const sendMessage = useCallback(async (text) => {
     if (!text.trim() || isLoading) return
 
     setIsLoading(true)
+    setError(null)
+    setActiveTool(null)
+    setOrderStatus(null)
+    setOrderData(null)
+
     const userMsg = { role: 'user', content: text }
     setMessages((prev) => [...prev, userMsg])
 
@@ -21,6 +30,10 @@ export function useChat(sessionId = 'default') {
         },
         body: JSON.stringify({ message: text }),
       })
+
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`)
+      }
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -39,6 +52,7 @@ export function useChat(sessionId = 'default') {
           const data = JSON.parse(line.slice(6))
 
           if (data.type === 'text') {
+            setActiveTool(null)
             setMessages((prev) => {
               const last = prev[prev.length - 1]
               if (last?.role === 'assistant') {
@@ -49,26 +63,43 @@ export function useChat(sessionId = 'default') {
           }
 
           if (data.type === 'tool_call') {
+            setActiveTool(data.tool)
             setMessages((prev) => [
               ...prev,
               { role: 'tool', tool: data.tool, args: data.args },
             ])
           }
+
+          if (data.type === 'order_confirmation') {
+            setActiveTool(null)
+            setOrderStatus('ready')
+            setOrderData(data.data)
+            setMessages((prev) => [
+              ...prev,
+              { role: 'order', data: data.data, orderStatus: 'ready' },
+            ])
+          }
         }
       }
     } catch (err) {
+      setError(err.message)
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: `Error: ${err.message}` },
+        { role: 'assistant', content: `Something went wrong: ${err.message}. Please try again.` },
       ])
     } finally {
       setIsLoading(false)
+      setActiveTool(null)
     }
   }, [sessionId, isLoading])
 
   const clearMessages = useCallback(() => {
     setMessages([])
+    setError(null)
+    setActiveTool(null)
+    setOrderStatus(null)
+    setOrderData(null)
   }, [])
 
-  return { messages, sendMessage, isLoading, clearMessages }
+  return { messages, sendMessage, isLoading, activeTool, orderStatus, orderData, error, clearMessages }
 }

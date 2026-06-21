@@ -180,6 +180,25 @@ def _build_history(session: Session) -> list[types.Content]:
     return history
 
 
+def _validate_order_args(args: dict) -> list[str]:
+    issues = []
+    cart = args.get("cart", [])
+    if not cart:
+        issues.append("Cart is empty")
+    if len(cart) > 30:
+        issues.append(f"Cart has {len(cart)} items, max is 30")
+    recipient = args.get("recipient", {})
+    if not recipient.get("name") or not recipient.get("phone"):
+        issues.append("Recipient name and phone are required")
+    delivery = args.get("delivery", {})
+    if not delivery.get("address") or not delivery.get("city") or not delivery.get("date"):
+        issues.append("Delivery address, city, and date are required")
+    sender = args.get("sender", {})
+    if not sender.get("name"):
+        issues.append("Sender name is required")
+    return issues
+
+
 async def chat_stream(session_id: str, message: str) -> AsyncGenerator[dict, None]:
     session = session_store.get_or_create(session_id)
     session.add_message("user", message)
@@ -220,10 +239,16 @@ async def chat_stream(session_id: str, message: str) -> AsyncGenerator[dict, Non
             args = dict(fc.args) if fc.args else {}
             yield {"type": "tool_call", "tool": name, "args": args}
 
+            if name == "create_order":
+                issues = _validate_order_args(args)
+                if issues:
+                    yield {"type": "text", "content": f"I noticed a few issues with the order:\n- " + "\n- ".join(issues) + "\n\nCould you check these and try again?"}
+                    return
+
             result = await _call_mcp_tool(name, args)
 
             if name == "create_order":
-                parsed = json.loads(result) if result.startswith("{") else result
+                parsed = json.loads(result) if isinstance(result, str) and result.startswith("{") else result
                 yield {"type": "order_confirmation", "data": parsed}
                 return
 
