@@ -74,10 +74,9 @@ class MCPClient:
         })
 
     async def call_tool(self, name: str, arguments: dict | None = None) -> Any:
-        # FastMCP wraps single-param tools under a "params" key
         return await self._send("tools/call", {
             "name": name,
-            "arguments": {"params": arguments or {}},
+            "arguments": arguments or {},
         })
 
     async def close(self) -> None:
