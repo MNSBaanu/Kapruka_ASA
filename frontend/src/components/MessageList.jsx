@@ -79,7 +79,7 @@ export default function MessageList({
             <div key={i}>
               <AssistantBubble content={msg.content} />
               {products.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <div className={`product-grid ${products.length >= 3 ? 'carousel' : ''}`}>
                   {products.map((p, j) => (
                     <ProductCard key={j} product={p} />
                   ))}
