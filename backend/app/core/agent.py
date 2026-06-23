@@ -209,16 +209,31 @@ async def chat_stream(session_id: str, message: str) -> AsyncGenerator[dict, Non
         tools=TOOLS,
     )
 
-    chat = client.chats.create(
-        model=settings.gemini_model,
-        config=config,
-        history=history,
-    )
+    try:
+        chat = client.chats.create(
+            model=settings.gemini_model,
+            config=config,
+            history=history,
+        )
+    except Exception as e:
+        yield {"type": "text", "content": f"I'm having trouble connecting right now. Please try again in a moment. (Error: {e})"}
+        return
 
     iteration = 0
+    pending_function_response = None
+
     while iteration < MAX_ITERATIONS:
         iteration += 1
-        response = chat.send_message(message if iteration == 1 else "")
+
+        try:
+            if pending_function_response:
+                response = chat.send_message(pending_function_response)
+                pending_function_response = None
+            else:
+                response = chat.send_message(message)
+        except Exception as e:
+            yield {"type": "text", "content": f"Something went wrong: {e}. Please try again."}
+            return
 
         if not response.candidates:
             yield {"type": "text", "content": "I didn't get a response. Could you try again?"}
@@ -252,9 +267,7 @@ async def chat_stream(session_id: str, message: str) -> AsyncGenerator[dict, Non
                 yield {"type": "order_confirmation", "data": parsed}
                 return
 
-            response = chat.send_message(
-                types.Part.from_function_response(name=name, response={"result": result}),
-            )
+            pending_function_response = types.Part.from_function_response(name=name, response={"result": result})
             continue
 
     yield {"type": "text", "content": "Sorry, I'm having trouble processing that. Could you try again?"}
