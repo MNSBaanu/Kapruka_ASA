@@ -33,3 +33,5 @@ server_test*.err
 
 # Git
 *.orig
+
+.docs/
