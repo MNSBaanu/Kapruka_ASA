@@ -38,4 +38,3 @@ server_test*.err
 # Git
 *.orig
 
-.Docs/
