@@ -16,8 +16,12 @@ env/
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
+
+# Documentation workspace
+Docs/
 
 # OS
 .DS_Store
