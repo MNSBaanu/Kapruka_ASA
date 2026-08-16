@@ -23,6 +23,7 @@ Before writing or changing implementation code (`backend/`, `frontend/`, agents,
 | `Docs/MCPServer.md` | MCP tools, parameters, rate limits, caching, checkout |
 | `Docs/GitHubSource.md` | Local MCP server setup, testing against official source |
 | `Docs/Approval.md` | Challenge registration and getting-started context |
+| `Docs/Checklist.md` | Gaps, failures, and sharpening work vs the current build |
 
 ## Non-negotiables from Docs
 
