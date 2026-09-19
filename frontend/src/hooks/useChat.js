@@ -171,7 +171,7 @@ export function useChat() {
         setFailed(true)
         setMessages((prev) => [
           ...closeBubble(prev),
-          { role: 'error', message: event.message, retry: event.code === 'busy' ? null : request.current },
+          { role: 'error', message: event.message, retryAfter: event.retry_after, retry: event.code === 'busy' ? null : request.current },
         ])
         return
       default:

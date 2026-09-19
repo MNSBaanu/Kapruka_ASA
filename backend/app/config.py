@@ -15,6 +15,9 @@ def _optional_int(name: str) -> int | None:
 class Settings:
     gemini_api_key: str = field(default_factory=lambda: getenv("GEMINI_API_KEY", ""))
     gemini_model: str = getenv("GEMINI_MODEL", "models/gemini-2.5-flash")
+    gemini_fallback_models: list[str] = field(default_factory=lambda: [m.strip() for m in getenv(
+        "GEMINI_FALLBACK_MODELS", "models/gemini-flash-latest,models/gemini-3.1-flash-lite,models/gemini-3-flash-preview",
+    ).split(",") if m.strip()])
     gemini_thinking_budget: int | None = _optional_int("GEMINI_THINKING_BUDGET")
     mcp_endpoint: str = getenv("MCP_ENDPOINT", "https://mcp.kapruka.com/mcp")
     mcp_timeout: int = int(getenv("MCP_TIMEOUT", "30"))

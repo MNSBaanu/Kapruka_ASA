@@ -1,9 +1,12 @@
 import asyncio
 import unittest
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from app.core import actions
+from google.genai import errors, types
+
+from app.core import actions, agent
 from app.core.cache import TTLCache
 from app.core.catalog import colombo_now, normalize_product
 from app.core.critic import unverified_delivery, verify
@@ -222,10 +225,62 @@ class Critic(unittest.TestCase):
         session.delivery_checks.append({"product_id": "FLOWERS00T2075", "available": True})
         self.assertFalse(unverified_delivery(text, session))
         self.assertFalse(unverified_delivery("Lovely roses [[product:FLOWERS00T2075]]", Session("s")))
+        self.assertFalse(unverified_delivery("[[product:FLOWERS00T2075]]\nWhich city should we deliver to?", Session("s")))
 
     def test_out_of_stock_must_be_mentioned(self):
         _, issues = verify("[[product:FLOWERS00T2075]] great pick", session_with_product(in_stock=False))
         self.assertTrue(issues)
+
+
+def _quota_error(seconds):
+    return errors.APIError(429, {"error": {"code": 429, "message": f"Quota exceeded. Please retry in {seconds}s."}})
+
+
+async def _collect(gen):
+    return [item async for item in gen]
+
+
+class ModelFallback(unittest.TestCase):
+    def setUp(self):
+        agent._cooldown_until.clear()
+
+    def tearDown(self):
+        agent._cooldown_until.clear()
+
+    def test_rate_limited_model_falls_back_and_cools_down(self):
+        calls = []
+
+        async def fake_stream(model, contents, config):
+            calls.append(model)
+            if model == agent.MODELS[0]:
+                raise _quota_error(12.5)
+
+            async def chunks():
+                yield SimpleNamespace(candidates=[SimpleNamespace(content=types.Content(role="model", parts=[types.Part(text="hi")]))])
+            return chunks()
+
+        user = [types.Content(role="user", parts=[types.Part(text="hello")])]
+        with patch.object(agent.client.aio.models, "generate_content_stream", fake_stream):
+            out = run(_collect(agent._stream_step(user, agent._config("sys"))))
+            self.assertEqual(out[0], ("delta", "hi"))
+            run(_collect(agent._stream_step(user, agent._config("sys"))))
+        self.assertEqual(calls, [agent.MODELS[0], agent.MODELS[1], agent.MODELS[1]])
+
+    def test_all_models_busy_reports_retry_time(self):
+        async def always_limited(model, contents, config):
+            raise _quota_error(20)
+
+        user = [types.Content(role="user", parts=[types.Part(text="hello")])]
+        with patch.object(agent.client.aio.models, "generate_content_stream", always_limited):
+            with self.assertRaises(agent.ModelsBusy) as caught:
+                run(_collect(agent._stream_step(user, agent._config("sys"))))
+        self.assertTrue(15 <= caught.exception.retry_after <= 20)
+
+    def test_gemini_3_gets_signature_for_unsigned_tool_calls(self):
+        call = types.Part(function_call=types.FunctionCall(name="search_products", args={"q": "roses"}))
+        contents = [types.Content(role="model", parts=[call])]
+        self.assertIsNone(agent._for_model("models/gemini-2.5-flash", contents)[0].parts[0].thought_signature)
+        self.assertEqual(agent._for_model("models/gemini-3.1-flash-lite", contents)[0].parts[0].thought_signature, agent.SKIP_SIGNATURE)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import re
+from time import monotonic
 from collections.abc import AsyncGenerator
 from google.genai import Client, errors, types
 from app.config import settings
@@ -12,15 +14,20 @@ from app.prompts.system import build_system_prompt
 log = logging.getLogger("kapruka.agent")
 client = Client(api_key=settings.gemini_api_key)
 
+MODELS = list(dict.fromkeys([settings.gemini_model, *settings.gemini_fallback_models]))
+SKIP_SIGNATURE = b"skip_thought_signature_validator"
+MAX_COOLDOWN_SECONDS = 3600
+_cooldown_until: dict[str, float] = {}
 MAX_STEPS = 8
 STILL_LOOKING_AFTER = 3
 RETRYABLE = {429, 500, 502, 503, 504}
 LANGUAGES = {"english", "sinhala", "singlish", "tamil", "tanglish"}
 FALLBACK_TEXT = "Sorry, I lost my train of thought there 😅 Could you say that again?"
 DELIVERY_NUDGE = (
-    "[Internal check - not from the customer] Your reply implies delivery timing for products you haven't checked. "
-    "If you know their city, call check_delivery (with product_id and their date) for the picks now, then reply. "
-    "If you don't know the city yet, don't promise timing - ask for it. Don't mention this check."
+    "[Internal check - not from the customer] Your reply promises delivery timing for products you haven't checked. "
+    "Keep the same product picks and markers. If you know their city, call check_delivery (with product_id and their date) "
+    "for the picks now, then reply. If you don't know the city yet, keep the picks but ask for the city instead of promising timing. "
+    "Don't mention this check."
 )
 
 
@@ -48,26 +55,71 @@ def _merge_text(parts: list[types.Part]) -> list[types.Part]:
     return merged
 
 
+class ModelsBusy(Exception):
+    def __init__(self, retry_after: int):
+        self.retry_after = retry_after
+        super().__init__(f"all models rate limited, retry in {retry_after}s")
+
+
+def _available_models() -> list[str]:
+    now = monotonic()
+    ready = [m for m in MODELS if _cooldown_until.get(m, 0) <= now]
+    if not ready:
+        raise ModelsBusy(max(1, round(min(_cooldown_until.values()) - now)))
+    return ready
+
+
+def _cool_down(model: str, error: errors.APIError) -> None:
+    match = re.search(r"retry in ([\d.]+)s", str(error.message or ""))
+    seconds = float(match.group(1)) if match else 30.0
+    _cooldown_until[model] = monotonic() + min(seconds, MAX_COOLDOWN_SECONDS)
+    log.warning("%s rate limited for %.0fs", model, seconds)
+
+
+def _for_model(model: str, contents: list[types.Content]) -> list[types.Content]:
+    """Gemini 3 models reject tool calls without thought signatures, e.g. ones produced by a 2.5 model."""
+    if "gemini-2" in model:
+        return contents
+    patched = []
+    for content in contents:
+        if any(p.function_call and not p.thought_signature for p in content.parts or []):
+            content = types.Content(role=content.role, parts=[
+                p.model_copy(update={"thought_signature": SKIP_SIGNATURE}) if p.function_call and not p.thought_signature else p
+                for p in content.parts
+            ])
+        patched.append(content)
+    return patched
+
+
 async def _stream_step(contents: list[types.Content], config: types.GenerateContentConfig) -> AsyncGenerator[tuple[str, object], None]:
-    """Yield ("delta", text) while the model streams, then ("parts", all parts). Retries once before any output."""
-    for attempt in range(2):
-        parts: list[types.Part] = []
-        emitted = False
-        try:
-            stream = await client.aio.models.generate_content_stream(model=settings.gemini_model, contents=contents, config=config)
-            async for chunk in stream:
-                candidate = chunk.candidates[0] if chunk.candidates else None
-                for part in (candidate.content.parts if candidate and candidate.content else None) or []:
-                    if part.text and not part.thought:
-                        emitted = True
-                        yield "delta", part.text
-                    parts.append(part)
-            yield "parts", parts
-            return
-        except errors.APIError as e:
-            if emitted or attempt or e.code not in RETRYABLE:
-                raise
-            await asyncio.sleep(1.5)
+    """Yield ("delta", text) while the model streams, then ("parts", all parts).
+    Before any output, falls back to the next model on rate limits and retries once on server errors."""
+    for model in _available_models():
+        for attempt in range(2):
+            parts: list[types.Part] = []
+            emitted = False
+            try:
+                stream = await client.aio.models.generate_content_stream(model=model, contents=_for_model(model, contents), config=config)
+                async for chunk in stream:
+                    candidate = chunk.candidates[0] if chunk.candidates else None
+                    for part in (candidate.content.parts if candidate and candidate.content else None) or []:
+                        if part.text and not part.thought:
+                            emitted = True
+                            yield "delta", part.text
+                        parts.append(part)
+                yield "parts", parts
+                return
+            except errors.APIError as e:
+                if emitted or e.code not in RETRYABLE:
+                    raise
+                if e.code == 429:
+                    _cool_down(model, e)
+                    break
+                if attempt:
+                    break
+                await asyncio.sleep(1.5)
+    _available_models()
+    raise ModelsBusy(5)
 
 
 async def _rewrite(session: Session, system: str, issues: list[str]) -> str | None:
@@ -77,11 +129,16 @@ async def _rewrite(session: Session, system: str, issues: list[str]) -> str | No
         "Keep the same language, tone and the valid [[product:ID]] markers. Output only the corrected reply."
     ))])
     try:
+        model = _available_models()[0]
         response = await client.aio.models.generate_content(
-            model=settings.gemini_model, contents=[*session.contents, note], config=_config(system, final=True))
+            model=model, contents=_for_model(model, [*session.contents, note]), config=_config(system, final=True))
         return (response.text or "").strip() or None
     except errors.APIError as e:
+        if e.code == 429:
+            _cool_down(model, e)
         log.warning("critic rewrite failed: %s", e.code)
+        return None
+    except ModelsBusy:
         return None
 
 
@@ -215,6 +272,9 @@ async def chat_stream(session_id: str, message: str, action: dict | None = None,
             async for event in _turn(session, message, action):
                 yield event
             completed = True
+        except ModelsBusy as e:
+            yield {"type": "error", "code": "model_busy", "retry_after": e.retry_after,
+                   "message": "Lots of shoppers right now 😅 Give me a few seconds."}
         except errors.APIError as e:
             log.warning("Gemini error %s: %s", e.code, e.message)
             busy = e.code in RETRYABLE

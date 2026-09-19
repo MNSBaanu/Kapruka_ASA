@@ -94,6 +94,7 @@ const en = {
   photo: '📸 Delivery photo available',
   somethingWrong: 'Something went wrong. Please try again.',
   tryAgain: 'Try again',
+  retryIn: (n) => `Trying again in ${n}s…`,
   memory: { budget: '🎯 Up to', city: '📍', delivery_date: '📅', recipient: '🎁 For', occasion: '✨' },
 }
 
@@ -193,6 +194,7 @@ const si = {
   photo: '📸 ඩිලිවරි ඡායාරූපය තියෙනවා',
   somethingWrong: 'මොකක් හරි වැරදුණා. ආයෙත් උත්සාහ කරන්න.',
   tryAgain: 'ආයෙත් උත්සාහ කරන්න',
+  retryIn: (n) => `තත්පර ${n}කින් ආයෙත් උත්සාහ කරනවා…`,
   memory: { budget: '🎯 උපරිම', city: '📍', delivery_date: '📅', recipient: '🎁', occasion: '✨' },
 }
 
@@ -292,6 +294,7 @@ const ta = {
   photo: '📸 டெலிவரி புகைப்படம் உள்ளது',
   somethingWrong: 'ஏதோ தவறு நடந்தது. மீண்டும் முயலுங்கள்.',
   tryAgain: 'மீண்டும் முயல்',
+  retryIn: (n) => `${n} விநாடிகளில் மீண்டும் முயல்கிறேன்…`,
   memory: { budget: '🎯 வரை', city: '📍', delivery_date: '📅', recipient: '🎁', occasion: '✨' },
 }
 

@@ -8,7 +8,7 @@ MONEY = re.compile(r"(?:LKR|Rs\.?|රු\.?|USD|US\$|GBP|£|EUR|€|AUD|CAD)\s?(
 MONEY_AFTER = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s?(?:LKR|rupees|/-)", re.I)
 NUMBER = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s*(k)?\b", re.I)
 PHONE = re.compile(r"(?<!\d)(?:\+94|0)7\d[\s-]?\d{3}[\s-]?\d{4}(?!\d)")
-DELIVERY_CLAIM = re.compile(r"\b(today|tomorrow|tonight|same[- ]day|heta|ada)\b|අද|හෙට|இன்று|நாளை|\bdeliver|\barriv", re.I)
+DELIVERY_CLAIM = re.compile(r"\b(today|tomorrow|tonight|same[- ]day|heta|ada)\b|අද|හෙට|இன்று|நாளை", re.I)
 OUT_OF_STOCK_WORDS = re.compile(r"out of stock|sold out|not in stock|unavailable|stock නැ|ඉවරයි|இருப்பு இல்லை|stock illa|stock naha", re.I)
 
 

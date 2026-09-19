@@ -5,6 +5,7 @@ import OrderCard from './OrderCard'
 import OrderSummaryCard from './OrderSummaryCard'
 import TrackingCard from './TrackingCard'
 import DeliveryChip from './DeliveryChip'
+import ErrorNotice from './ErrorNotice'
 import ToolIndicator from './ToolIndicator'
 import TypingIndicator from './TypingIndicator'
 import WelcomeScreen from './WelcomeScreen'
@@ -84,10 +85,15 @@ export default function MessageList({ chat, t, lang }) {
             )
           case 'error':
             return (
-              <div key={i} className="error-inline">
-                <span>⚠️ {msg.message || t.somethingWrong}</span>
-                {msg.retry && <button onClick={() => retry(msg.retry)} disabled={isLoading}>{t.tryAgain}</button>}
-              </div>
+              <ErrorNotice
+                key={i}
+                message={msg.message}
+                retry={msg.retry}
+                retryAfter={msg.retryAfter}
+                disabled={isLoading}
+                onRetry={retry}
+                t={t}
+              />
             )
           default:
             return null
