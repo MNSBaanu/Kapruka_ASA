@@ -1,17 +1,12 @@
-export default function ToolIndicator({ tool }) {
-  const labels = {
-    search_products: '🔍 Searching products...',
-    get_product: '🔍 Getting product details...',
-    list_categories: '📂 Browsing categories...',
-    list_delivery_cities: '📍 Checking delivery cities...',
-    check_delivery: '🚚 Checking delivery...',
-    create_order: '🛒 Placing order...',
-    track_order: '📦 Tracking order...',
-  }
+import ProductCarousel from './ProductCarousel'
 
+export default function ToolIndicator({ tool, stillLooking, t }) {
   return (
-    <div className="tool-indicator">
-      {labels[tool] || `🔍 ${tool}...`}
-    </div>
+    <>
+      <div className="tool-indicator">
+        {stillLooking ? `⏳ ${t.stillLooking}` : t.tools[tool] || `🔍 ${tool}…`}
+      </div>
+      {tool === 'search_products' && <ProductCarousel skeleton={3} t={t} />}
+    </>
   )
 }
