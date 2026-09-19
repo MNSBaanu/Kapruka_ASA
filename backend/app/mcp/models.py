@@ -3,7 +3,7 @@ from typing import Any
 
 
 class MCPError(Exception):
-    def __init__(self, code: int, message: str):
+    def __init__(self, code: int | str, message: str):
         self.code = code
         self.message = message
         super().__init__(f"[{code}] {message}")
@@ -18,6 +18,6 @@ class MCPRequest(BaseModel):
 
 class MCPResponse(BaseModel):
     jsonrpc: str
-    id: int
+    id: int | str | None = None
     result: Any = None
     error: dict[str, Any] | None = None
