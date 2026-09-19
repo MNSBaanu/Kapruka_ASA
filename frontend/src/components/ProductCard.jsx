@@ -1,4 +1,6 @@
-export default function ProductCard({ product }) {
+import { formatMoney } from '../i18n'
+
+export default function ProductCard({ product, inCart, onChoose, onDetails, t, wide = false }) {
   if (!product) {
     return (
       <div className="product-card-skeleton">
@@ -11,43 +13,45 @@ export default function ProductCard({ product }) {
     )
   }
 
-  const hasImage = product.image && product.image !== ''
-  const inStock = product.stock !== false && product.stock !== 'Out of Stock'
-  const price = product.price
-    ? `LKR ${Number(product.price).toLocaleString('en-LK')}`
-    : ''
+  const inStock = product.in_stock !== false
+  const onSale = typeof product.compare_at_price === 'number' && product.compare_at_price > product.price
+  const stockLabel = !inStock ? t.outOfStock : product.stock_level === 'low' ? t.lowStock : t.inStock
 
   return (
-    <div className="product-card">
+    <div className={`product-card${wide ? ' wide' : ''}${inStock ? '' : ' sold-out'}`}>
       <div className="product-card-image-wrap">
-        {hasImage ? (
-          <img
-            className="product-card-image"
-            src={product.image}
-            alt={product.name}
-            loading="lazy"
-          />
+        {product.image ? (
+          <img className="product-card-image" src={product.image} alt={product.name} loading="lazy" />
         ) : (
           <div className="product-card-image-placeholder">📦</div>
         )}
+        {onSale && <span className="product-card-badge">{t.sale}</span>}
       </div>
       <div className="product-card-body">
-        <div className="product-card-name">{product.name}</div>
-        {price && <div className="product-card-price">{price}</div>}
-        <div className={`product-card-stock ${inStock ? 'in-stock' : 'out-of-stock'}`}>
-          <span className="product-card-stock-dot" />
-          {inStock ? 'In Stock' : 'Out of Stock'}
+        <div className="product-card-name" title={product.name}>{product.name}</div>
+        <div className="product-card-price">
+          {formatMoney(product.price, product.currency)}
+          {onSale && <s className="product-card-was">{formatMoney(product.compare_at_price, product.currency)}</s>}
         </div>
-        {product.url && (
-          <a
+        <div className={`product-card-stock ${inStock ? (product.stock_level === 'low' ? 'low-stock' : 'in-stock') : 'out-of-stock'}`}>
+          <span className="product-card-stock-dot" />
+          {stockLabel}
+          {product.variants?.length > 1 && <span className="product-card-options"> · {t.options(product.variants.length)}</span>}
+        </div>
+        <div className="product-card-actions">
+          <button
             className="product-card-btn"
-            href={product.url}
-            target="_blank"
-            rel="noopener noreferrer"
+            disabled={!inStock || inCart || !onChoose}
+            onClick={() => onChoose(product)}
           >
-            View on Kapruka →
-          </a>
-        )}
+            {inCart ? t.inOrder : t.choose}
+          </button>
+          {onDetails && (
+            <button className="product-card-link" onClick={() => onDetails(product)}>
+              {t.details}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
